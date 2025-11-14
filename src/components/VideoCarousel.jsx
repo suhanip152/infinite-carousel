@@ -5,14 +5,16 @@ const VideoCarousel = ({ videos }) => {
   const videoContainerRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);
-  const [loadedIndexes, setLoadedIndexes] = useState({});
+  const [visibleIndexes, setVisibleIndexes] = useState({});
 
   const infiniteVideos = useMemo(() => {
-    // For small/medium lists, duplicate to improve the infinite scrolling feel.
-    // For larger lists, avoid duplication to keep DOM size and memory reasonable.
     if (!Array.isArray(videos)) return [];
-    if (videos.length > 20) return videos;
-    return [...videos, ...videos];
+    // For small/medium lists, duplicate once so the train is long enough to see scrolling.
+    if (videos.length <= 10) {
+      return [...videos, ...videos];
+    }
+    // For larger lists, no duplication to avoid too many DOM nodes.
+    return videos;
   }, [videos]);
 
   useEffect(() => {
@@ -48,14 +50,14 @@ const VideoCarousel = ({ videos }) => {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
+        setVisibleIndexes((prev) => {
+          const next = { ...prev };
+          entries.forEach((entry) => {
             const index = Number(entry.target.dataset.index);
-            setLoadedIndexes((prev) => {
-              if (prev[index]) return prev;
-              return { ...prev, [index]: true };
-            });
-          }
+            if (Number.isNaN(index)) return;
+            next[index] = entry.isIntersecting;
+          });
+          return next;
         });
       },
       {
@@ -103,8 +105,8 @@ const VideoCarousel = ({ videos }) => {
                 key={i}
                 src={vid}
                 data-index={i}
-                preload={loadedIndexes[i] ? "metadata" : "none"}
-                autoPlay
+                preload={visibleIndexes[i] ? "metadata" : "none"}
+                autoPlay={!!visibleIndexes[i]}
                 loop
                 muted
                 className="rounded object-cover video-container"
